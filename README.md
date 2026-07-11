@@ -116,7 +116,7 @@ Optional (for running generated code):
 ### From source
 
 ```bash
-git clone https://github.com/sg938/ollama-cli.git
+git clone https://github.com/gurtej9602/ollama-cli.git
 cd ollama-cli
 go build -ldflags="-s -w" -o ollama-cli .
 ```
@@ -124,12 +124,12 @@ go build -ldflags="-s -w" -o ollama-cli .
 ### Go install
 
 ```bash
-go install github.com/sg938/ollama-cli@latest
+go install github.com/gurtej9602/ollama-cli@latest
 ```
 
 ### Pre-built binaries
 
-Check the [Releases](https://github.com/sg938/ollama-cli/releases) page for platform-specific binaries (when available).
+Check the [Releases](https://github.com/gurtej9602/ollama-cli/releases) page for platform-specific binaries (when available).
 
 ---
 
@@ -353,7 +353,7 @@ ollama-cli/
 
 ```bash
 # Clone
-git clone https://github.com/sg938/ollama-cli.git
+git clone https://github.com/gurtej9602/ollama-cli.git
 cd ollama-cli
 
 # Download dependencies

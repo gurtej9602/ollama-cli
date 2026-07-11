@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/sg938/ollama-cli/internal/tui"
+	"github.com/gurtej9602/ollama-cli/internal/tui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

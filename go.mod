@@ -1,4 +1,4 @@
-module github.com/sg938/ollama-cli
+module github.com/gurtej9602/ollama-cli
 
 go 1.22
 

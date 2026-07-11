@@ -16,8 +16,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
-	ollamaclient "github.com/sg938/ollama-cli/internal/ollama"
-	"github.com/sg938/ollama-cli/internal/tools"
+	ollamaclient "github.com/gurtej9602/ollama-cli/internal/ollama"
+	"github.com/gurtej9602/ollama-cli/internal/tools"
 )
 
 // Config holds the app configuration

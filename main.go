@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/sg938/ollama-cli/cmd"
+	"github.com/gurtej9602/ollama-cli/cmd"
 )
 
 func main() {
