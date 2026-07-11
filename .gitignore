@@ -1,6 +1,7 @@
 # Binaries
 ollama-cli
 ollama-cli.exe
+ollama-cli.exe~
 ollama-cli-*
 *.exe
 *.dll
