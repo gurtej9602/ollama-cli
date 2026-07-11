@@ -1,0 +1,25 @@
+# Binaries
+ollama-cli
+ollama-cli.exe
+ollama-cli-*
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+/vendor/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local test scripts
+test.ps1
+test file.ps1
