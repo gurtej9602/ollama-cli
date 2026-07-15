@@ -36,6 +36,42 @@ var themes = map[string]ThemeColors{
 		Border:     "#374151",
 		UserBubble: "#1E1B4B",
 	},
+	"light": {
+		Primary:    "#2563EB", // Blue
+		Accent:     "#D97706", // Amber Accent
+		Success:    "#059669",
+		Warning:    "#D97706",
+		Error:      "#DC2626",
+		Muted:      "#4B5563",
+		Text:       "#1F2937", // Dark Gray text
+		Bg:         "#F9FAFB", // Light Gray background
+		Border:     "#E5E7EB",
+		UserBubble: "#EFF6FF",
+	},
+	"purple": {
+		Primary:    "#A78BFA",
+		Accent:     "#F472B6",
+		Success:    "#34D399",
+		Warning:    "#FBBF24",
+		Error:      "#F87171",
+		Muted:      "#9CA3AF",
+		Text:       "#F5F3FF",
+		Bg:         "#2E1065", // Dark Purple background
+		Border:     "#5B21B6",
+		UserBubble: "#4C1D95",
+	},
+	"green": {
+		Primary:    "#4ADE80",
+		Accent:     "#22D3EE",
+		Success:    "#22C55E",
+		Warning:    "#EAB308",
+		Error:      "#EF4444",
+		Muted:      "#9CA3AF",
+		Text:       "#F0FDF4",
+		Bg:         "#062F16", // Dark Forest Green background
+		Border:     "#14532D",
+		UserBubble: "#166534",
+	},
 	"dracula": {
 		Primary:    "#BD93F9",
 		Accent:     "#50FA7B",
@@ -95,6 +131,54 @@ var themes = map[string]ThemeColors{
 		Bg:         "#052E16",
 		Border:     "#14532D",
 		UserBubble: "#14532D",
+	},
+	"cyberpunk": {
+		Primary:    "#FF007F", // Neon Pink
+		Accent:     "#00F0FF", // Neon Cyan
+		Success:    "#39FF14", // Neon Green
+		Warning:    "#FFFF00", // Neon Yellow
+		Error:      "#FF3131", // Neon Red
+		Muted:      "#7B2CBF", // Neon Purple
+		Text:       "#00F0FF",
+		Bg:         "#0D0D0D", // Deep Black
+		Border:     "#FF007F",
+		UserBubble: "#1A001A",
+	},
+	"synthwave": {
+		Primary:    "#FE53BB", // Synth Pink
+		Accent:     "#08F7FE", // Synth Blue
+		Success:    "#39FF14",
+		Warning:    "#F5A623",
+		Error:      "#FF0055",
+		Muted:      "#711C91",
+		Text:       "#F5F3FF",
+		Bg:         "#1A0933", // Deep Violet
+		Border:     "#F107A3",
+		UserBubble: "#2A0D4A",
+	},
+	"matrix": {
+		Primary:    "#00FF00", // Matrix Green
+		Accent:     "#00D000",
+		Success:    "#00FF00",
+		Warning:    "#80FF80",
+		Error:      "#FF0000",
+		Muted:      "#004000",
+		Text:       "#00FF00",
+		Bg:         "#000000", // Pure Black
+		Border:     "#00FF00",
+		UserBubble: "#001100",
+	},
+	"aurora": {
+		Primary:    "#38BDF8", // Sky Blue
+		Accent:     "#34D399", // Aurora Green
+		Success:    "#059669",
+		Warning:    "#FBBF24",
+		Error:      "#EF4444",
+		Muted:      "#64748B",
+		Text:       "#E0F2FE",
+		Bg:         "#0B132B", // Deep Space Blue
+		Border:     "#1C2541",
+		UserBubble: "#1C2541",
 	},
 	"sunset": {
 		Primary:    "#F97316",
@@ -186,9 +270,8 @@ func recomputeStyles() {
 
 	headerStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(colorPrimary).
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(colorPrimary).
+		Foreground(colorBg).
+		Background(colorPrimary).
 		Padding(0, 2).
 		Align(lipgloss.Center)
 
@@ -213,12 +296,16 @@ func recomputeStyles() {
 		BorderForeground(colorPrimary)
 
 	userLabelStyle = lipgloss.NewStyle().
-		Foreground(colorPrimary).
-		Bold(true)
+		Bold(true).
+		Foreground(colorBg).
+		Background(colorPrimary).
+		Padding(0, 1)
 
 	assistantLabelStyle = lipgloss.NewStyle().
-		Foreground(colorAccent).
-		Bold(true)
+		Bold(true).
+		Foreground(colorBg).
+		Background(colorAccent).
+		Padding(0, 1)
 
 	errorStyle = lipgloss.NewStyle().
 		Foreground(colorError).

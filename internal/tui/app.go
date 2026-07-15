@@ -81,6 +81,7 @@ const (
 	stateReady
 	stateStreaming
 	stateError
+	stateCmdApproval // waiting for user to approve running a command
 	stateRunningCmd  // a shell command is currently executing (captured)
 )
 
@@ -101,6 +102,9 @@ type model struct {
 	height      int
 	renderer    *glamour.TermRenderer
 	stream      *streamState
+	// command approval
+	pendingCmd        string
+	pendingIsLauncher bool
 	// project context
 	projectRoot string
 	modelList   []string
@@ -134,32 +138,47 @@ func newModel(cfg Config) (*model, error) {
 	vp := viewport.New(80, 20)
 	vp.SetContent(hintStyle.Render("Connecting to Ollama..."))
 
-	renderer, err := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(100),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create markdown renderer: %w", err)
-	}
-
 	client, err := ollamaclient.NewClient(cfg.Host, cfg.Model)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ollama client: %w", err)
 	}
 
-	return &model{
+	m := &model{
 		cfg:           cfg,
 		client:        client,
 		state:         stateConnecting,
 		spinner:       s,
 		viewport:      vp,
 		input:         ta,
-		renderer:      renderer,
 		currentResp:   &strings.Builder{},
 		historyIdx:    -1,
 		startTime:     time.Now(),
 		aliases:       make(map[string]string),
-	}, nil
+	}
+	m.updateRenderer()
+	return m, nil
+}
+
+func (m *model) updateRenderer() {
+	style := "dark"
+	switch currentThemeName {
+	case "light":
+		style = "light"
+	case "dracula":
+		style = "dracula"
+	case "nord":
+		style = "nord"
+	default:
+		// purple, green, forest, sunset, monokai, etc. fall back to dark style for markdown rendering
+		style = "dark"
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle(style),
+		glamour.WithWordWrap(100),
+	)
+	if err == nil {
+		m.renderer = r
+	}
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -295,6 +314,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				sb.WriteString(hintStyle.Render("   📄 " + f.RelPath + "\n"))
 			}
 			m.history = append(m.history, sb.String())
+
+			// ── Verification Step ─────────────────────────────────────────────
+			m.history = append(m.history, hintStyle.Render("🔍 Checking file structure...\n"))
+			if verifyErr := tools.VerifySavedFiles(projectRoot, projectFiles); verifyErr != nil {
+				m.history = append(m.history, errorStyle.Render("❌ Verification failed: "+verifyErr.Error())+"\n")
+			} else {
+				m.history = append(m.history, successStyle.Render("✓ File structure verified successfully!\n"))
+
+				// ── Infer the correct run command for this project ────────────────
+				if runCmd := tools.InferRunCommand(projectFiles, projectRoot); runCmd != "" {
+					m.pendingCmd = runCmd
+					m.pendingIsLauncher = tools.IsLauncherCmd(runCmd)
+					m.state = stateCmdApproval
+					m.history = append(m.history, runPromptStyleCmd(runCmd, projectRoot))
+				}
+			}
 		}
 
 		m.refreshViewport()
@@ -401,6 +436,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// ── Key events ────────────────────────────────────────────────────────────
 	case tea.KeyMsg:
 		switch m.state {
+
+		// ── Command approval ──
+		case stateCmdApproval:
+			switch strings.ToLower(msg.String()) {
+			case "y":
+				if len(m.history) > 0 {
+					m.history = m.history[:len(m.history)-1]
+				}
+				cmd := m.pendingCmd
+				workDir := m.projectRoot
+				isLauncher := m.pendingIsLauncher
+				m.history = append(m.history,
+					toolStyle.Render("⚙ Launching terminal for: ")+hintStyle.Render(cmd)+"\n")
+				m.history = append(m.history,
+					hintStyle.Render("   A terminal window will open — interact with the program, then close it when done.\n"))
+				m.refreshViewport()
+				m.viewport.GotoBottom()
+				m.state = stateRunningCmd
+				return m, tea.Batch(m.spinner.Tick, func() tea.Msg {
+					res := tools.RunInVisibleTerminalCaptured(cmd, workDir, 120*time.Second)
+					return cmdResultMsg{result: res, isLauncher: isLauncher}
+				})
+			case "n", tea.KeyEsc.String():
+				m.state = stateReady
+				if len(m.history) > 0 {
+					m.history = m.history[:len(m.history)-1]
+				}
+				m.history = append(m.history, hintStyle.Render("Skipped.\n"))
+				m.refreshViewport()
+			}
+			return m, tea.Batch(cmds...)
 
 		case stateReady:
 			switch msg.Type {
@@ -547,6 +613,9 @@ func (m model) View() string {
 	case stateReady:
 		status = successStyle.Render("● Ready") +
 			hintStyle.Render("   ↑/↓ history  •  Ctrl+L=bottom  •  /help for commands")
+	case stateCmdApproval:
+		status = toolStyle.Render("▶ Run?") +
+			hintStyle.Render("   Y to run  •  N or Esc to skip")
 	case stateError:
 		status = errorStyle.Render("✗ " + m.errorMsg)
 	}
@@ -616,6 +685,7 @@ func (m *model) handleSlash(input string) []tea.Cmd {
 | ` + "`/file <path>`" + ` | Load a file into context |
 | ` + "`/system <text>`" + ` | Set system prompt |
 | ` + "`/append <text>`" + ` | Set a prompt to append to all user messages |
+| ` + "`/theme [name]`" + ` | Switch theme or list themes |
 | ` + "`/run <cmd>`" + ` | Run a shell command (output shown + errors auto-fixed by LLM) |
 | ` + "`/terminal [dir]`" + ` | Open an interactive terminal in the project dir (or [dir]) |
 | ` + "`/copy`" + ` | Copy last AI response to clipboard |
@@ -721,6 +791,35 @@ folder to run commands manually, inspect files, or debug interactively.
 		m.appendPrompt = strings.Join(parts[1:], " ")
 		m.history = append(m.history, successStyle.Render("✓ Append prompt updated\n"))
 		m.refreshViewport()
+
+	case "/theme":
+		if len(parts) < 2 {
+			themesList := ListThemes()
+			var sb strings.Builder
+			sb.WriteString("## Available Themes\n\n")
+			for _, name := range themesList {
+				active := ""
+				if name == currentThemeName {
+					active = " ✓"
+				}
+				sb.WriteString(fmt.Sprintf("- `%s`%s\n", name, active))
+			}
+			sb.WriteString("\n_Switch with_ `/theme <name>`_._\n")
+			m.history = append(m.history, m.renderMD(sb.String()))
+			m.refreshViewport()
+			m.viewport.GotoBottom()
+			return nil
+		}
+		themeName := strings.TrimSpace(parts[1])
+		if SetTheme(themeName) {
+			m.history = append(m.history, successStyle.Render(fmt.Sprintf("✓ Switched theme to: %s\n", themeName)))
+			m.updateRenderer()
+		} else {
+			m.history = append(m.history, errorStyle.Render(fmt.Sprintf("Unknown theme: %s\n", themeName)))
+		}
+		m.refreshViewport()
+		m.viewport.GotoBottom()
+		return nil
 
 	case "/run":
 		if len(parts) < 2 {

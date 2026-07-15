@@ -230,10 +230,9 @@ try {
 
 	// ── Step 3: launch a visible PowerShell window that runs the script ──────
 
-	escapedPsPath := psEscape(psPath)
 	launchCmd := fmt.Sprintf(
-		"Start-Process cmd -ArgumentList '/c powershell -NoProfile -ExecutionPolicy Bypass -File \"%s\"' -WindowStyle Normal -Wait",
-		escapedPsPath,
+		`Start-Process powershell -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', '%s' -WindowStyle Normal -Wait`,
+		psEscape(psPath),
 	)
 
 	launcher := exec.Command(
@@ -310,111 +309,52 @@ func RunInVisibleTerminalCaptured(command, workDir string, timeout time.Duration
 	// tmpDir cleanup happens in the goroutine after the window closes.
 
 	exitFile := filepath.Join(tmpDir, "exit.txt")
-	psFile   := filepath.Join(tmpDir, "run.ps1")
+	batFile  := filepath.Join(tmpDir, "run.bat")
 
-	// ── 1. Write the PowerShell script ───────────────────────────────────────
-	// Using a .ps1 instead of a .bat gives us:
-	//   • Native color / Unicode box-drawing for a beautiful UI.
-	//   • Auto-close: the script simply ends — no pause needed.
-	//   • Full system PATH set explicitly so gcc, MinGW, go, etc. all work.
+	// ── 1. Write the Batch script ───────────────────────────────────────
 	var b strings.Builder
-
-	// Escape single quotes in strings that will be embedded in PS single-quoted literals.
-	safeCmd  := strings.ReplaceAll(command,  "'", "''")
-	safeDir  := strings.ReplaceAll(workDir,  "'", "''")
-	safeExit := strings.ReplaceAll(exitFile, "'", "''")
-
-	b.WriteString("$ErrorActionPreference = 'Continue'\r\n")
-	b.WriteString("$host.UI.RawUI.WindowTitle = 'Ollama CLI'\r\n")
-	// Rebuild PATH from both Machine and User hives so every tool is found.
-	b.WriteString("$env:PATH = [Environment]::GetEnvironmentVariable('PATH','Machine') + ';' +" +
-		" [Environment]::GetEnvironmentVariable('PATH','User')\r\n")
+	b.WriteString("@echo off\r\n")
+	b.WriteString("title Ollama CLI\r\n")
 	if workDir != "" {
-		b.WriteString(fmt.Sprintf("Set-Location -LiteralPath '%s'\r\n", safeDir))
+		b.WriteString(fmt.Sprintf("cd /d \"%s\"\r\n", workDir))
 	}
-	b.WriteString("[Console]::OutputEncoding = [Text.Encoding]::UTF8\r\n")
-	b.WriteString("Clear-Host\r\n")
+	b.WriteString("echo.\r\n")
+	b.WriteString("echo   ============ OLLAMA CLI ============\r\n")
+	b.WriteString(fmt.Sprintf("echo   * Running: %s\r\n", strings.ReplaceAll(command, "%", "%%")))
+	b.WriteString("echo   ====================================\r\n")
+	b.WriteString("echo.\r\n")
+	b.WriteString(command + "\r\n")
+	b.WriteString("set ec=%errorlevel%\r\n")
+	b.WriteString(fmt.Sprintf("echo %%ec%% > \"%s\"\r\n", exitFile))
+	b.WriteString("echo.\r\n")
+	b.WriteString("echo   ====================================\r\n")
+	b.WriteString("if %ec%==0 (\r\n")
+	b.WriteString("  echo   * Finished successfully\r\n")
+	b.WriteString(") else (\r\n")
+	b.WriteString("  echo   * Failed with exit code %ec%\r\n")
+	b.WriteString(")\r\n")
+	b.WriteString("echo   ====================================\r\n")
+	b.WriteString("echo.\r\n")
+	b.WriteString("echo   Program finished. Press any key to close...\r\n")
+	b.WriteString("pause > nul\r\n")
+	b.WriteString("exit %ec%\r\n")
 
-	// Characters embedded directly — simplest, no [char] cast needed in PS.
-	const (
-		boxH  = "\u2550" // ═
-		boxTL = "\u2554" // ╔
-		boxTR = "\u2557" // ╗
-		boxBL = "\u255A" // ╚
-		boxBR = "\u255D" // ╝
-		boxV  = "\u2551" // ║
-		icoRun  = "\u25B6" // ▶
-		icoOK   = "\u2714" // ✔
-		icoFail = "\u2718" // ✘
-		icoDash = "\u2014" // —
-		icoTime = "\u23F1" // ⏱
-		icoLogo = "\u26A1" // ⚡
-	)
-	sep := strings.Repeat(boxH, 66) // width=70 → inner = 66 chars
-
-	// PS variables and helper written once at top of the script.
-	b.WriteString(fmt.Sprintf("$cmdStr = '%s'\r\n", safeCmd))
-	b.WriteString("function LPad([string]$s,[int]$n){ $s + (' ' * [Math]::Max(0,$n - $s.Length)) }\r\n")
-
-	b.WriteString("Write-Host ''\r\n")
-	b.WriteString(fmt.Sprintf("Write-Host '  %s%s%s' -ForegroundColor DarkCyan\r\n", boxTL, sep, boxTR))
-	b.WriteString(fmt.Sprintf("Write-Host '  %s' -ForegroundColor DarkCyan -NoNewline\r\n", boxV))
-	b.WriteString(fmt.Sprintf("Write-Host (LPad '  %s OLLAMA CLI' 66) -ForegroundColor White -NoNewline\r\n", icoLogo))
-	b.WriteString(fmt.Sprintf("Write-Host '%s' -ForegroundColor DarkCyan\r\n", boxV))
-	b.WriteString(fmt.Sprintf("Write-Host '  %s' -ForegroundColor DarkCyan -NoNewline\r\n", boxV))
-	b.WriteString(fmt.Sprintf("Write-Host (LPad \"  %s  $cmdStr\" 66) -ForegroundColor Yellow -NoNewline\r\n", icoRun))
-	b.WriteString(fmt.Sprintf("Write-Host '%s' -ForegroundColor DarkCyan\r\n", boxV))
-	b.WriteString(fmt.Sprintf("Write-Host '  %s%s%s' -ForegroundColor DarkCyan\r\n", boxBL, sep, boxBR))
-	b.WriteString("Write-Host ''\r\n")
-
-	// ── run ─────────────────────────────────────────────────────────────────────
-	b.WriteString("$t0 = Get-Date\r\n")
-	// cmd /c passes the full command string to cmd.exe verbatim.
-	b.WriteString("cmd /c $cmdStr\r\n")
-	b.WriteString("$ec = $LASTEXITCODE; if ($null -eq $ec) { $ec = 0 }\r\n")
-	b.WriteString("$dur = [Math]::Round(((Get-Date)-$t0).TotalSeconds, 2)\r\n")
-	b.WriteString(fmt.Sprintf("\"$ec\" | Set-Content -LiteralPath '%s'\r\n", safeExit))
-
-	// ── footer ─────────────────────────────────────────────────────────────────
-	b.WriteString("Write-Host ''\r\n")
-	b.WriteString(fmt.Sprintf("Write-Host '  %s%s%s' -ForegroundColor DarkCyan\r\n", boxTL, sep, boxTR))
-	b.WriteString(fmt.Sprintf("Write-Host '  %s' -ForegroundColor DarkCyan -NoNewline\r\n", boxV))
-	b.WriteString(fmt.Sprintf("if ($ec -eq 0) {\r\n  Write-Host (LPad '  %s  Finished successfully' 66) -ForegroundColor Green -NoNewline\r\n} else {\r\n  Write-Host (LPad \"  %s  Failed %s exit code $ec\" 66) -ForegroundColor Red -NoNewline\r\n}\r\n",
-		icoOK, icoFail, icoDash))
-	b.WriteString(fmt.Sprintf("Write-Host '%s' -ForegroundColor DarkCyan\r\n", boxV))
-	b.WriteString(fmt.Sprintf("Write-Host '  %s' -ForegroundColor DarkCyan -NoNewline\r\n", boxV))
-	b.WriteString(fmt.Sprintf("Write-Host (LPad \"  %s  $($dur)s\" 66) -ForegroundColor DarkGray -NoNewline\r\n", icoTime))
-	b.WriteString(fmt.Sprintf("Write-Host '%s' -ForegroundColor DarkCyan\r\n", boxV))
-	b.WriteString(fmt.Sprintf("Write-Host '  %s%s%s' -ForegroundColor DarkCyan\r\n", boxBL, sep, boxBR))
-	b.WriteString("Write-Host ''\r\n")
-	b.WriteString("Write-Host '  Program finished. Press any key to close...' -ForegroundColor Yellow\r\n")
-	b.WriteString("try { $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') } catch { Read-Host }\r\n")
-	
-	// Script ends → powershell process exits → Start-Process -Wait unblocks → auto-close.
-	b.WriteString("exit $ec\r\n")
-
-	if err := os.WriteFile(psFile, []byte(b.String()), 0644); err != nil {
+	if err := os.WriteFile(batFile, []byte(b.String()), 0644); err != nil {
 		os.RemoveAll(tmpDir)
-		res.Error = fmt.Errorf("failed to write PS script: %w", err)
+		res.Error = fmt.Errorf("failed to write Batch script: %w", err)
 		res.ExitCode = 1
 		return res
 	}
 
-	// ── 2. Launch a visible PowerShell window and wait for it to close ────────
+	// ── 2. Launch a visible cmd window and wait for it to close ──────────
 	//
-	// A hidden PowerShell process (Start-Process -Wait) launches the visible
-	// PS window. When the script finishes the window closes automatically.
-	launchCmd := fmt.Sprintf(
-		`Start-Process cmd -ArgumentList '/c powershell -NoProfile -ExecutionPolicy Bypass -File "%s"' -WindowStyle Normal -Wait`,
-		psEscape(psFile),
-	)
+	// Spawn cmd.exe to start /wait a visible cmd.exe window running the batch file.
 	launcher := exec.Command(
-		"powershell.exe",
-		"-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
-		"-Command", launchCmd,
+		"cmd.exe",
+		"/c", "start", "/wait", "cmd.exe", "/c", batFile,
 	)
 	launcher.SysProcAttr = &syscall.SysProcAttr{
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW — hide the PS launcher
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW — hide the launcher cmd
 		HideWindow:    true,
 	}
 

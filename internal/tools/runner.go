@@ -217,6 +217,32 @@ func AutoSaveResponse(markdown string) (string, []ProjectFile, error) {
 	return root, files, nil
 }
 
+// VerifySavedFiles checks if the files written to projectRoot exist and their contents
+// match the expected code from the LLM.
+func VerifySavedFiles(root string, files []ProjectFile) error {
+	for _, f := range files {
+		dest := filepath.Join(root, f.RelPath)
+		stat, err := os.Stat(dest)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("file %s was not created", f.RelPath)
+			}
+			return fmt.Errorf("error accessing %s: %w", f.RelPath, err)
+		}
+		if stat.IsDir() {
+			return fmt.Errorf("%s is a directory but expected a file", f.RelPath)
+		}
+		data, err := os.ReadFile(dest)
+		if err != nil {
+			return fmt.Errorf("error reading %s: %w", f.RelPath, err)
+		}
+		if string(data) != f.Code {
+			return fmt.Errorf("content mismatch in file %s", f.RelPath)
+		}
+	}
+	return nil
+}
+
 // InferRunCommand returns the best shell command to launch/run a project given
 // its files. The command is intended to be executed with workDir = projectRoot.
 // Returns "" if no runnable entry point can be detected.
@@ -232,6 +258,19 @@ func InferRunCommand(files []ProjectFile, projectRoot string) string {
 		rel := strings.ToLower(filepath.ToSlash(f.RelPath))
 		fileSet[base] = true
 		fileSet[rel] = true
+	}
+
+	// Helper to find the correct relative path for a list of potential base names
+	findRelPath := func(names []string) string {
+		for _, name := range names {
+			for _, f := range files {
+				base := strings.ToLower(filepath.Base(f.RelPath))
+				if base == name {
+					return filepath.ToSlash(f.RelPath)
+				}
+			}
+		}
+		return ""
 	}
 
 	// ── 1. Makefile (explicit build instructions) ─────────────────────────────
@@ -286,13 +325,7 @@ func InferRunCommand(files []ProjectFile, projectRoot string) string {
 	}
 
 	// ── 7. Python with dependency file ───────────────────────────────────────
-	pyEntry := ""
-	for _, name := range []string{"main.py", "app.py", "server.py", "run.py", "__main__.py"} {
-		if fileSet[name] {
-			pyEntry = name
-			break
-		}
-	}
+	pyEntry := findRelPath([]string{"main.py", "app.py", "server.py", "run.py", "__main__.py"})
 	if fileSet["requirements.txt"] {
 		if pyEntry == "" {
 			pyEntry = "main.py"
@@ -307,18 +340,20 @@ func InferRunCommand(files []ProjectFile, projectRoot string) string {
 	}
 
 	// ── 8. HTML project → open in default browser ────────────────────────────
-	if fileSet["index.html"] {
+	htmlEntry := findRelPath([]string{"index.html"})
+	if htmlEntry != "" {
 		if runtime.GOOS == "windows" {
-			return "start index.html"
+			return "start " + htmlEntry
 		} else if runtime.GOOS == "darwin" {
-			return "open index.html"
+			return "open " + htmlEntry
 		}
-		return "xdg-open index.html"
+		return "xdg-open " + htmlEntry
 	}
 
 	// ── 9. Single Go file (no go.mod) ────────────────────────────────────────
-	if fileSet["main.go"] {
-		return "go run main.go"
+	goEntry := findRelPath([]string{"main.go"})
+	if goEntry != "" {
+		return "go run " + goEntry
 	}
 	// Multiple .go files → run the whole package
 	goCount := 0
@@ -332,117 +367,125 @@ func InferRunCommand(files []ProjectFile, projectRoot string) string {
 	}
 
 	// ── 10. Node.js (no package.json) ────────────────────────────────────────
-	for _, name := range []string{"server.js", "app.js", "index.js", "main.js", "script.js"} {
-		if fileSet[name] {
-			return "node " + name
-		}
+	nodeEntry := findRelPath([]string{"server.js", "app.js", "index.js", "main.js", "script.js"})
+	if nodeEntry != "" {
+		return "node " + nodeEntry
 	}
 
 	// ── 11. TypeScript — prefer deno if available, else ts-node ──────────────
-	for _, name := range []string{"server.ts", "app.ts", "index.ts", "main.ts", "script.ts", "mod.ts"} {
-		if fileSet[name] {
-			if _, ok := lookAny("deno", "deno.exe"); ok {
-				return "deno run --allow-all " + name
-			}
-			return "npx ts-node " + name
+	tsEntry := findRelPath([]string{"server.ts", "app.ts", "index.ts", "main.ts", "script.ts", "mod.ts"})
+	if tsEntry != "" {
+		if _, ok := lookAny("deno", "deno.exe"); ok {
+			return "deno run --allow-all " + tsEntry
 		}
+		return "npx ts-node " + tsEntry
 	}
 
 	// ── 12. Python (no dependency file) ──────────────────────────────────────
 	if pyEntry != "" {
 		return "python " + pyEntry
 	}
-	for _, name := range []string{"script.py", "app.py"} {
-		if fileSet[name] {
-			return "python " + name
-		}
+	pyFallback := findRelPath([]string{"script.py", "app.py"})
+	if pyFallback != "" {
+		return "python " + pyFallback
 	}
 
 	// ── 13. Ruby ─────────────────────────────────────────────────────────────
+	rubyEntry := findRelPath([]string{"main.rb", "app.rb", "server.rb", "script.rb"})
 	if fileSet["gemfile"] {
-		for _, name := range []string{"main.rb", "app.rb", "server.rb"} {
-			if fileSet[name] {
-				return "bundle install && ruby " + name
-			}
+		if rubyEntry != "" {
+			return "bundle install && ruby " + rubyEntry
 		}
 	}
-	for _, name := range []string{"main.rb", "app.rb", "server.rb", "script.rb"} {
-		if fileSet[name] {
-			return "ruby " + name
-		}
+	if rubyEntry != "" {
+		return "ruby " + rubyEntry
 	}
 
 	// ── 14. Compiled languages (single-file) ─────────────────────────────────
-	if fileSet["main.rs"] {
+	rsEntry := findRelPath([]string{"main.rs"})
+	if rsEntry != "" {
+		dir := filepath.Dir(rsEntry)
+		baseNoExt := strings.TrimSuffix(filepath.Base(rsEntry), filepath.Ext(rsEntry))
+		outBin := filepath.ToSlash(filepath.Join(dir, baseNoExt))
 		if runtime.GOOS == "windows" {
-			return `rustc main.rs -o main.exe && .\main.exe`
+			outBinWin := filepath.FromSlash(outBin) + ".exe"
+			return fmt.Sprintf(`rustc %s -o %s && .\%s`, rsEntry, outBinWin, outBinWin)
 		}
-		return "rustc main.rs && ./main"
+		return fmt.Sprintf("rustc %s -o %s && ./%s", rsEntry, outBin, outBin)
 	}
-	if fileSet["main.c"] {
+	cEntry := findRelPath([]string{"main.c"})
+	if cEntry != "" {
+		dir := filepath.Dir(cEntry)
+		baseNoExt := strings.TrimSuffix(filepath.Base(cEntry), filepath.Ext(cEntry))
+		outBin := filepath.ToSlash(filepath.Join(dir, baseNoExt))
 		if runtime.GOOS == "windows" {
-			return `gcc -std=c17 -Wall main.c -o main.exe && .\main.exe`
+			outBinWin := filepath.FromSlash(outBin) + ".exe"
+			return fmt.Sprintf(`gcc -std=c17 -Wall %s -o %s && .\%s`, cEntry, outBinWin, outBinWin)
 		}
-		return "gcc -std=c17 -Wall main.c -o main && ./main"
+		return fmt.Sprintf("gcc -std=c17 -Wall %s -o %s && ./%s", cEntry, outBin, outBin)
 	}
-	if fileSet["main.cpp"] {
+	cppEntry := findRelPath([]string{"main.cpp"})
+	if cppEntry != "" {
+		dir := filepath.Dir(cppEntry)
+		baseNoExt := strings.TrimSuffix(filepath.Base(cppEntry), filepath.Ext(cppEntry))
+		outBin := filepath.ToSlash(filepath.Join(dir, baseNoExt))
 		if runtime.GOOS == "windows" {
-			return `g++ -std=c++17 -Wall main.cpp -o main.exe && .\main.exe`
+			outBinWin := filepath.FromSlash(outBin) + ".exe"
+			return fmt.Sprintf(`g++ -std=c++17 -Wall %s -o %s && .\%s`, cppEntry, outBinWin, outBinWin)
 		}
-		return "g++ -std=c++17 -Wall main.cpp -o main && ./main"
+		return fmt.Sprintf("g++ -std=c++17 -Wall %s -o %s && ./%s", cppEntry, outBin, outBin)
 	}
 
 	// ── 15. Shell scripts ─────────────────────────────────────────────────────
-	for _, name := range []string{"run.sh", "start.sh", "script.sh"} {
-		if fileSet[name] {
-			return "bash " + name
-		}
+	shEntry := findRelPath([]string{"run.sh", "start.sh", "script.sh"})
+	if shEntry != "" {
+		return "bash " + shEntry
 	}
 
 	// ── 16. Fallback: first file whose language we can run ────────────────────
 	for _, f := range files {
-		base := filepath.Base(f.RelPath)
-		ext := strings.ToLower(filepath.Ext(base))
+		rel := filepath.ToSlash(f.RelPath)
+		ext := strings.ToLower(filepath.Ext(rel))
 		switch ext {
 		case ".py":
-			return "python " + base
+			return "python " + rel
 		case ".go":
-			return "go run " + base
+			return "go run " + rel
 		case ".js":
-			return "node " + base
+			return "node " + rel
 		case ".ts":
-			return "npx ts-node " + base
+			return "npx ts-node " + rel
 		case ".rb":
-			return "ruby " + base
+			return "ruby " + rel
 		case ".html":
 			if runtime.GOOS == "windows" {
-				return "start " + base
+				return "start " + rel
 			}
-			return "open " + base
+			return "open " + rel
 		case ".sh":
-			return "bash " + base
+			return "bash " + rel
 		}
+		base := filepath.Base(f.RelPath)
 		switch strings.ToLower(f.Language) {
 		case "python", "python3", "py":
-			return "python " + base
+			return "python " + rel
 		case "go", "golang":
-			return "go run " + base
+			return "go run " + rel
 		case "javascript", "js", "node":
-			return "node " + base
+			return "node " + rel
 		case "typescript", "ts":
-			return "npx ts-node " + base
+			return "npx ts-node " + rel
 		case "html":
 			if runtime.GOOS == "windows" {
-				return "start " + base
+				return "start " + rel
 			}
-			return "open " + base
+			return "open " + rel
 		case "ruby", "rb":
-			return "ruby " + base
+			return "ruby " + rel
 		case "bash", "sh", "shell":
 			return "bash " + base
 		}
 	}
-
 	return ""
 }
 
