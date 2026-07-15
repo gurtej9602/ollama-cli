@@ -677,22 +677,43 @@ func (m *model) handleSlash(input string) []tea.Cmd {
 	case "/help":
 		help := `## Commands
 
+### Chat & Model
 | Command | Description |
 |---|---|
 | ` + "`/models`" + ` | List all locally available models |
 | ` + "`/model <name>`" + ` | Switch to a specific model by name or number |
 | ` + "`/clear`" + ` | Clear conversation history |
-| ` + "`/file <path>`" + ` | Load a file into context |
+| ` + "`/retry`" + ` | Regenerate the last AI response |
 | ` + "`/system <text>`" + ` | Set system prompt |
 | ` + "`/append <text>`" + ` | Set a prompt to append to all user messages |
-| ` + "`/theme [name]`" + ` | Switch theme or list themes |
+| ` + "`/reset`" + ` | Reset system prompt and append prompt to defaults |
+
+### Dev Shortcuts
+| Command | Description |
+|---|---|
+| ` + "`/explain <file>`" + ` | Load a file and ask the LLM to explain it |
+| ` + "`/fix <file>`" + ` | Load a file and ask the LLM to find and fix bugs |
+| ` + "`/review <file>`" + ` | Load a file and ask the LLM for a code review |
+| ` + "`/test <file>`" + ` | Load a file and ask the LLM to generate unit tests |
+| ` + "`/summarize`" + ` | Ask the LLM to summarize the conversation so far |
+
+### Files & Execution
+| Command | Description |
+|---|---|
+| ` + "`/file <path>`" + ` | Load a file into context |
+| ` + "`/ls [dir]`" + ` | List files in project dir (or [dir]) |
 | ` + "`/run <cmd>`" + ` | Run a shell command (output shown + errors auto-fixed by LLM) |
 | ` + "`/terminal [dir]`" + ` | Open an interactive terminal in the project dir (or [dir]) |
+| ` + "`/cd <dir>`" + ` | Change the working directory for commands |
+
+### Utilities
+| Command | Description |
+|---|---|
 | ` + "`/copy`" + ` | Copy last AI response to clipboard |
 | ` + "`/save [name]`" + ` | Save full conversation as Markdown |
-| ` + "`/retry`" + ` | Regenerate the last AI response |
-| ` + "`/cd <dir>`" + ` | Change the working directory for commands |
+| ` + "`/theme [name]`" + ` | Switch theme or list themes |
 | ` + "`/tokens`" + ` | Show approximate token count for this conversation |
+| ` + "`/history`" + ` | Show your recent input history |
 | ` + "`Ctrl+C`" + ` | Quit (or cancel streaming) |
 | ` + "`Ctrl+L`" + ` | Jump to bottom of chat |
 | ` + "`↑ / ↓`" + ` | Navigate your input history (like a terminal) |
@@ -700,14 +721,10 @@ func (m *model) handleSlash(input string) []tea.Cmd {
 **Auto-save**: Every time the LLM responds with code, ALL files are automatically saved to
 ` + "`~/ollama-cli-projects/YYYY-MM-DD/HHMMSS/`" + ` — even without pressing Y.
 
-**Smart run**: After saving, the CLI infers the correct launch command for the project
-(e.g. ` + "`start index.html`" + ` for web, ` + "`python main.py`" + ` for Python, ` + "`npm install && npm start`" + ` for Node).
+**Smart run**: After saving, the CLI infers the correct launch command for the project.
 
 **Error loop**: When a command fails, the full error output is automatically fed back to the
 LLM which identifies the root cause and provides corrected code.
-
-**Interactive terminal**: Use ` + "`/terminal`" + ` to open a PowerShell window in your project
-folder to run commands manually, inspect files, or debug interactively.
 `
 		m.history = append(m.history, m.renderMD(help))
 		m.refreshViewport()
@@ -975,12 +992,164 @@ folder to run commands manually, inspect files, or debug interactively.
 		m.refreshViewport()
 		m.viewport.GotoBottom()
 
+	// ── /explain <file> ─────────────────────────────────────────────────────
+	case "/explain":
+		if len(parts) < 2 {
+			m.history = append(m.history, errorStyle.Render("Usage: /explain <file path>\n"))
+			m.refreshViewport()
+			return nil
+		}
+		filePath := strings.Join(parts[1:], " ")
+		return m.sendFilePrompt(filePath, "Please explain the following code in detail. Describe what each section does, the overall purpose, and any important patterns or design decisions:\n\n")
+
+	// ── /fix <file> ─────────────────────────────────────────────────────────
+	case "/fix":
+		if len(parts) < 2 {
+			m.history = append(m.history, errorStyle.Render("Usage: /fix <file path>\n"))
+			m.refreshViewport()
+			return nil
+		}
+		filePath := strings.Join(parts[1:], " ")
+		return m.sendFilePrompt(filePath, "Please carefully review the following code for bugs, errors, and issues. Identify the root cause of each problem and provide the complete corrected code with all fixes applied:\n\n")
+
+	// ── /review <file> ──────────────────────────────────────────────────────
+	case "/review":
+		if len(parts) < 2 {
+			m.history = append(m.history, errorStyle.Render("Usage: /review <file path>\n"))
+			m.refreshViewport()
+			return nil
+		}
+		filePath := strings.Join(parts[1:], " ")
+		return m.sendFilePrompt(filePath, "Please perform a thorough code review on the following code. Check for: bugs, security issues, performance problems, code style, readability, and best practices. Provide specific suggestions with improved code where applicable:\n\n")
+
+	// ── /test <file> ────────────────────────────────────────────────────────
+	case "/test":
+		if len(parts) < 2 {
+			m.history = append(m.history, errorStyle.Render("Usage: /test <file path>\n"))
+			m.refreshViewport()
+			return nil
+		}
+		filePath := strings.Join(parts[1:], " ")
+		return m.sendFilePrompt(filePath, "Please generate comprehensive unit tests for the following code. Cover edge cases, error handling, and typical usage. Use the appropriate testing framework for the language:\n\n")
+
+	// ── /summarize ──────────────────────────────────────────────────────────
+	case "/summarize":
+		if len(m.messages) == 0 {
+			m.history = append(m.history, errorStyle.Render("Nothing to summarize yet.\n"))
+			m.refreshViewport()
+			return nil
+		}
+		prompt := "Please provide a concise summary of our entire conversation so far. Include the key topics discussed, decisions made, code written, and any outstanding issues."
+		ts := timestampStyle.Render(" [" + time.Now().Format("15:04") + "]")
+		m.history = append(m.history, userLabelStyle.Render("You")+ts+" "+hintStyle.Render("[/summarize]")+"\n")
+		m.history = append(m.history, assistantLabelStyle.Render("🦙 Ollama")+"\n")
+		m.messages = append(m.messages, ollamaclient.Message{Role: "user", Content: prompt})
+		m.currentResp.Reset()
+		m.refreshViewport()
+		m.viewport.GotoBottom()
+		m.state = stateStreaming
+		streamCmd, ss := startStream(m.client, m.messages, m.cfg.SystemPrompt)
+		m.stream = ss
+		return []tea.Cmd{streamCmd, m.spinner.Tick}
+
+	// ── /reset ──────────────────────────────────────────────────────────────
+	case "/reset":
+		m.cfg.SystemPrompt = ""
+		m.appendPrompt = ""
+		m.history = append(m.history, successStyle.Render("✓ System prompt and append prompt reset to defaults.\n"))
+		m.refreshViewport()
+		m.viewport.GotoBottom()
+
+	// ── /ls [dir] ──────────────────────────────────────────────────────────
+	case "/ls":
+		dir := m.projectRoot
+		if len(parts) >= 2 {
+			target := strings.Join(parts[1:], " ")
+			if strings.HasPrefix(target, "~") {
+				home, _ := os.UserHomeDir()
+				target = filepath.Join(home, target[1:])
+			}
+			if abs, err := filepath.Abs(target); err == nil {
+				dir = abs
+			}
+		}
+		if dir == "" {
+			m.history = append(m.history, errorStyle.Render("No project directory set. Use /cd <dir> first or /ls <dir>.\n"))
+			m.refreshViewport()
+			return nil
+		}
+		tree, err := tools.ListDir(dir)
+		if err != nil {
+			m.history = append(m.history, errorStyle.Render("⚠ "+err.Error()+"\n"))
+		} else {
+			m.history = append(m.history, toolStyle.Render("📂 "+dir)+"\n"+tree+"\n")
+		}
+		m.refreshViewport()
+		m.viewport.GotoBottom()
+
+	// ── /history ────────────────────────────────────────────────────────────
+	case "/history":
+		if len(m.inputHistory) == 0 {
+			m.history = append(m.history, hintStyle.Render("No input history yet.\n"))
+			m.refreshViewport()
+			return nil
+		}
+		var sb strings.Builder
+		sb.WriteString("## Recent Input History\n\n")
+		max := len(m.inputHistory)
+		if max > 20 {
+			max = 20
+		}
+		for i := 0; i < max; i++ {
+			entry := m.inputHistory[i]
+			if len(entry) > 80 {
+				entry = entry[:77] + "..."
+			}
+			sb.WriteString(fmt.Sprintf("%d. `%s`\n", i+1, entry))
+		}
+		sb.WriteString("\n_Use ↑/↓ to navigate history in the input field._\n")
+		m.history = append(m.history, m.renderMD(sb.String()))
+		m.refreshViewport()
+		m.viewport.GotoBottom()
+
 	default:
 		m.history = append(m.history, errorStyle.Render(fmt.Sprintf("Unknown command: %s  (try /help)\n", parts[0])))
 		m.refreshViewport()
 	}
 
 	return nil
+}
+
+// sendFilePrompt is a helper that reads a file, prepends a task prompt, and sends it to the LLM.
+func (m *model) sendFilePrompt(filePath, taskPrompt string) []tea.Cmd {
+	// Resolve path relative to project root if set
+	if !filepath.IsAbs(filePath) && m.projectRoot != "" {
+		filePath = filepath.Join(m.projectRoot, filePath)
+	}
+	content, err := tools.ReadFile(filePath)
+	if err != nil {
+		m.history = append(m.history, errorStyle.Render("⚠ Cannot read file: "+err.Error()+"\n"))
+		m.refreshViewport()
+		return nil
+	}
+
+	ext := strings.ToLower(filepath.Ext(filePath))
+	lang := strings.TrimPrefix(ext, ".")
+	prompt := fmt.Sprintf("%s```%s\n%s\n```\n", taskPrompt, lang, content)
+
+	ts := timestampStyle.Render(" [" + time.Now().Format("15:04") + "]")
+	base := filepath.Base(filePath)
+	m.history = append(m.history, userLabelStyle.Render("You")+ts+" "+hintStyle.Render("["+base+"]")+"\n")
+	m.history = append(m.history, assistantLabelStyle.Render("🦙 Ollama")+"\n")
+	m.messages = append(m.messages, ollamaclient.Message{Role: "user", Content: prompt})
+	m.currentResp.Reset()
+	m.refreshViewport()
+	m.viewport.GotoBottom()
+
+	m.state = stateStreaming
+	streamCmd, ss := startStream(m.client, m.messages, m.cfg.SystemPrompt)
+	m.stream = ss
+	return []tea.Cmd{streamCmd, m.spinner.Tick}
 }
 
 // saveConversation writes the full chat to a Markdown file and returns the path.
