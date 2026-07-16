@@ -14,6 +14,7 @@ Built with Go and the [Charm](https://charm.sh) stack (Bubble Tea, Lipgloss, Gla
 - [Screenshots](#screenshots)
 - [Requirements](#requirements)
 - [Installation](#installation)
+  - [Global Installation (Optional)](#global-installation-optional)
 - [Quick Start](#quick-start)
 - [Usage](#usage)
 - [Slash Commands](#slash-commands)
@@ -130,6 +131,67 @@ go install github.com/gurtej9602/ollama-cli@latest
 ### Pre-built binaries
 
 Check the [Releases](https://github.com/gurtej9602/ollama-cli/releases) page for platform-specific binaries (when available).
+
+### Global Installation (Optional)
+
+By default, the built binary only works from the project directory. To make `ollamacli` available as a **global command** you can run from any directory in your terminal, use one of these methods:
+
+#### Method 1: Go install (easiest)
+
+If you installed via `go install`, the binary is already in your Go bin directory (`$GOPATH/bin` or `~/go/bin`), which is typically on your PATH. You can rename it to `ollamacli`:
+
+```bash
+# The binary will be named ollama-cli by default
+go install github.com/gurtej9602/ollama-cli@latest
+
+# Rename it (optional — if you prefer the command "ollamacli")
+# Windows (PowerShell)
+Rename-Item "$env:GOPATH\bin\ollama-cli.exe" "ollamacli.exe"
+
+# macOS / Linux
+mv "$(go env GOPATH)/bin/ollama-cli" "$(go env GOPATH)/bin/ollamacli"
+```
+
+#### Method 2: Build and install to Go bin
+
+Build from source and output directly to your Go bin directory with your preferred name:
+
+```bash
+git clone https://github.com/gurtej9602/ollama-cli.git
+cd ollama-cli
+```
+
+**Windows (PowerShell):**
+```powershell
+go build -ldflags="-s -w" -o "$env:GOPATH\bin\ollamacli.exe" .
+```
+
+**macOS / Linux:**
+```bash
+go build -ldflags="-s -w" -o "$(go env GOPATH)/bin/ollamacli" .
+```
+
+After this, you can type `ollamacli` from any terminal window.
+
+#### Method 3: Add to PATH manually
+
+If you want to keep the binary in a custom location, build it wherever you like and add that directory to your system PATH:
+
+**Windows:**
+1. Build the binary: `go build -ldflags="-s -w" -o ollamacli.exe .`
+2. Move `ollamacli.exe` to a folder of your choice (e.g. `C:\tools\`)
+3. Add that folder to your PATH:
+   - Open **Settings → System → About → Advanced system settings → Environment Variables**
+   - Under **User variables**, edit `Path` and add `C:\tools\`
+4. Restart your terminal
+
+**macOS / Linux:**
+```bash
+go build -ldflags="-s -w" -o ollamacli .
+sudo mv ollamacli /usr/local/bin/
+```
+
+> **Note:** After a global install, you can run `ollamacli` (or `ollama-cli`) from any directory — it will work right where you are.
 
 ---
 
