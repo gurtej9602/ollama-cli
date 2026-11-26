@@ -1,0 +1,26 @@
+# Ollama CLI Documentation Index
+
+> A fast, local AI coding assistant powered by Ollama in your terminal. No cloud. No API keys. Just your machine.
+
+## Core Documentation
+
+- [Introduction](/introduction): Overview, core features, and architectural highlights.
+- [Quickstart](/quickstart): Launch your local AI assistant and start building in under 2 minutes.
+- [Installation](/installation): Install via Go install, build from source, or configure global PATH access.
+
+## Features
+
+- [Chat & Terminal UI](/features/chat-and-tui): Live token streaming via NDJSON, Markdown rendering with Glamour, color themes, and navigation shortcuts.
+- [Auto-Save & Project Workflow](/features/auto-save): Automatic code extraction, multi-file annotations (`// file:` comments), and project directories.
+- [Code Execution & Self-Correction](/features/code-execution): Running shell commands with `/run`, smart toolchain inference, and the automated LLM error-fix loop.
+
+## Reference
+
+- [Slash Commands](/reference/commands): Complete reference for in-session commands (`/help`, `/model`, `/models`, `/save`, `/file`, `/tokens`, `/terminal`).
+- [Configuration](/reference/configuration): YAML configuration format (`~/.ollamacli.yaml`), CLI flags, and environment variables.
+- [Recommended Models](/reference/models): Hardware tiers, VRAM guidelines, and tested models for coding (`qwen2.5-coder:7b`) and chat (`llama3.2`).
+
+## Development
+
+- [Architecture](/development/architecture): Technical stack (Bubble Tea, Lipgloss, Glamour), streaming architecture, and Windows process isolation.
+- [Building from Source](/development/building): Compilation instructions, stripped binary flags, and cross-platform compilation commands.
