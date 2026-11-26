@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 )
 
 // ── Request / Response types ──────────────────────────────────────────────────
@@ -139,11 +138,10 @@ func (c *Client) StreamChat(ctx context.Context, messages []Message, systemPromp
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	// Use a transport with no read timeout for streaming
-	transport := &http.Transport{
-		ResponseHeaderTimeout: 30 * time.Second,
+	// Use standard transport with zero header timeout so slow model loads won't time out
+	client := &http.Client{
+		Transport: http.DefaultTransport,
 	}
-	client := &http.Client{Transport: transport}
 
 	resp, err := client.Do(req)
 	if err != nil {

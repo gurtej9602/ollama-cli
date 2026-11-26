@@ -1,0 +1,84 @@
+---
+title: "Slash Commands"
+description: "Complete reference for all in-chat commands available in Ollama CLI"
+---
+
+Slash commands allow you to control models, manage sessions, execute shell tasks, and inspect tokens without leaving the TUI.
+
+Type `/` or `/help` inside the input box to see available commands.
+
+---
+
+## Session Management
+
+### `/help`
+Displays the built-in quick command help card directly inside the chat viewport.
+
+### `/clear`
+Clears the current conversation messages and viewport, resetting model context for a fresh session.
+
+### `/save [filename]`
+Exports the entire conversation transcript (including formatted prompts, AI responses, and code blocks) to a Markdown file on disk.
+
+```bash
+/save my-session.md
+```
+
+### `/retry`
+Discards the previous assistant response and re-prompts the model to regenerate a fresh answer.
+
+### `/tokens`
+Displays an estimate of the tokens used in the current conversation context.
+
+---
+
+## Model Control
+
+### `/models`
+Fetches and lists all local models currently downloaded and available in your Ollama installation.
+
+### `/model <name | index>`
+Switches the active model mid-session. You can pass either the model tag or its numerical index from `/models`.
+
+```bash
+/model qwen2.5-coder:7b
+/model 2
+```
+
+### `/system <text>`
+Overrides the system prompt for subsequent prompts in the active session.
+
+```bash
+/system You are an expert Go programmer. Write concise, idiomatic code with thorough unit tests.
+```
+
+### `/append <text>`
+Configures a string to be automatically appended to the end of every user message (useful for enforcing rules like "Always include comments and types").
+
+---
+
+## Tools & Execution
+
+### `/run <command>`
+Executes a command using the system shell in the current working directory. Captured standard output and standard error are displayed in the viewport.
+
+```bash
+/run npm run build
+/run pytest
+```
+
+### `/terminal [dir]`
+Spawns an interactive terminal window (PowerShell on Windows, bash/zsh on macOS/Linux) rooted at your saved project directory.
+
+### `/cd <dir>`
+Changes the active working directory used by `/run` commands.
+
+### `/file <path>`
+Loads the contents of an existing file into the chat context so the model can inspect, refactor, or explain it.
+
+```bash
+/file ./src/app.go
+```
+
+### `/copy`
+Copies the text of the latest AI response directly to your operating system clipboard.

@@ -83,6 +83,7 @@ const (
 	stateError
 	stateCmdApproval // waiting for user to approve running a command
 	stateRunningCmd  // a shell command is currently executing (captured)
+	statePastedCollapse // user pasted large text/code block, waiting for submission approval
 )
 
 // ── Model ─────────────────────────────────────────────────────────────────────
@@ -105,6 +106,10 @@ type model struct {
 	// command approval
 	pendingCmd        string
 	pendingIsLauncher bool
+	// large paste collapse approval
+	pendingPastedText string
+	pendingLineCount  int
+	pendingCharCount  int
 	// project context
 	projectRoot string
 	modelList   []string
@@ -468,6 +473,58 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, tea.Batch(cmds...)
 
+		// ── Pasted text confirmation ──
+		case statePastedCollapse:
+			switch strings.ToLower(msg.String()) {
+			case "y", tea.KeyEnter.String():
+				pasted := m.pendingPastedText
+				m.state = stateReady
+				m.input.Reset()
+
+				// Push to input history
+				if len(m.inputHistory) == 0 || m.inputHistory[0] != pasted {
+					m.inputHistory = append([]string{pasted}, m.inputHistory...)
+					if len(m.inputHistory) > 100 {
+						m.inputHistory = m.inputHistory[:100]
+					}
+				}
+
+				inputForLLM := pasted
+				if m.appendPrompt != "" {
+					inputForLLM = pasted + " " + m.appendPrompt
+				}
+
+				ts := timestampStyle.Render(" [" + time.Now().Format("15:04") + "]")
+				previewDisplay := fmt.Sprintf("📋 [Pasted content: %d lines, %d chars]", m.pendingLineCount, m.pendingCharCount)
+				m.history = append(m.history, userLabelStyle.Render("You")+ts+" "+previewDisplay+"\n")
+				m.history = append(m.history, assistantLabelStyle.Render("🦙 Ollama")+"\n")
+				m.messages = append(m.messages, ollamaclient.Message{Role: "user", Content: inputForLLM})
+				m.currentResp.Reset()
+				m.refreshViewport()
+				m.viewport.GotoBottom()
+
+				m.state = stateStreaming
+				streamCmd, ss := startStream(m.client, m.messages, m.cfg.SystemPrompt)
+				m.stream = ss
+				return m, tea.Batch(append(cmds, streamCmd, m.spinner.Tick)...)
+
+			case "e":
+				// Put content back in input textarea for manual editing
+				m.input.SetValue(m.pendingPastedText)
+				m.state = stateReady
+				m.refreshViewport()
+				return m, tea.Batch(cmds...)
+
+			case "c", "n", tea.KeyEsc.String():
+				m.state = stateReady
+				m.input.Reset()
+				m.pendingPastedText = ""
+				m.history = append(m.history, hintStyle.Render("Pasted text cancelled.\n"))
+				m.refreshViewport()
+				return m, tea.Batch(cmds...)
+			}
+			return m, tea.Batch(cmds...)
+
 		case stateReady:
 			switch msg.Type {
 			case tea.KeyCtrlC:
@@ -512,7 +569,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if msg.Alt {
 					break // Shift+Enter → newline
 				}
-				input := strings.TrimSpace(m.input.Value())
+				rawVal := m.input.Value()
+				lines := strings.Split(rawVal, "\n")
+				lineCount := len(lines)
+				charCount := len(rawVal)
+
+				// Intercept pasted multi-line text or large block (> 3 lines or > 250 chars)
+				if lineCount > 3 || charCount > 250 {
+					m.pendingPastedText = rawVal
+					m.pendingLineCount = lineCount
+					m.pendingCharCount = charCount
+					m.state = statePastedCollapse
+
+					m.history = append(m.history,
+						toolStyle.Render("📋 Large Text Pasted Detected")+"\n"+
+							hintStyle.Render(fmt.Sprintf("   Pasted content contains %d lines (%d characters).\n", lineCount, charCount))+
+							successStyle.Render("   Press Y / Enter to send  •  E to edit in box  •  C / Esc to cancel")+"\n",
+					)
+					m.refreshViewport()
+					m.viewport.GotoBottom()
+					return m, tea.Batch(cmds...)
+				}
+
+				input := strings.TrimSpace(rawVal)
 				if input == "" {
 					break
 				}
@@ -616,6 +695,9 @@ func (m model) View() string {
 	case stateCmdApproval:
 		status = toolStyle.Render("▶ Run?") +
 			hintStyle.Render("   Y to run  •  N or Esc to skip")
+	case statePastedCollapse:
+		status = toolStyle.Render("📋 Send Pasted Text?") +
+			hintStyle.Render(fmt.Sprintf("   [%d lines, %d chars] Y=Send • E=Edit • C=Cancel", m.pendingLineCount, m.pendingCharCount))
 	case stateError:
 		status = errorStyle.Render("✗ " + m.errorMsg)
 	}

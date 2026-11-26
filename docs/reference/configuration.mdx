@@ -1,0 +1,70 @@
+---
+title: "Configuration"
+description: "CLI flags, YAML configuration options, and environment variables"
+---
+
+Ollama CLI uses **Viper** for configuration management. It searches for configuration in CLI flags, environment variables, and an optional YAML config file.
+
+## Configuration File
+
+You can create a YAML configuration file at:
+- **Windows**: `%USERPROFILE%\.ollamacli.yaml`
+- **macOS / Linux**: `~/.ollamacli.yaml`
+
+### Example Configuration
+
+```yaml
+# Default Ollama model to load on startup
+default_model: qwen2.5-coder:7b
+
+# Ollama server host URL
+ollama_host: http://localhost:11434
+
+# System prompt prepended to every conversation
+system_prompt: |
+  You are an expert coding assistant running inside Ollama CLI.
+  Be concise and practical. Prefer working, runnable code with file annotations.
+
+# UI theme: dark | dracula | nord | monokai | ocean | forest | sunset
+theme: dark
+
+# Auto-approve tool execution
+auto_approve_tools: false
+```
+
+---
+
+## Command Line Flags
+
+You can override any configuration value using command line flags:
+
+| Flag | Short | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--model` | `-m` | `llama3.2` | The model tag to load |
+| `--host` | `-H` | `http://localhost:11434` | Ollama API endpoint URL |
+| `--config` | | `~/.ollamacli.yaml` | Path to custom YAML config file |
+
+### Examples
+
+```bash
+# Start with a specific model
+ollama-cli --model qwen2.5-coder:7b
+
+# Connect to a remote Ollama server on your local network
+ollama-cli --host http://192.168.1.50:11434
+
+# Use an explicit configuration file
+ollama-cli --config ./custom-config.yaml
+```
+
+---
+
+## Environment Variables
+
+All configuration options can also be provided via environment variables prefixed by `OLLAMACLI_`:
+
+```bash
+export OLLAMACLI_DEFAULT_MODEL="qwen2.5-coder:7b"
+export OLLAMACLI_OLLAMA_HOST="http://localhost:11434"
+export OLLAMACLI_THEME="nord"
+```

@@ -1,0 +1,75 @@
+---
+title: "Quickstart"
+description: "Launch your local AI assistant and start building in under 2 minutes"
+---
+
+Get up and running with Ollama CLI in just a few quick steps.
+
+<Steps>
+  <Step title="Verify Ollama is Running">
+    Ollama CLI connects to your local Ollama instance on `http://localhost:11434`. Ensure Ollama is active:
+
+    ```bash
+    ollama serve
+    ```
+
+    <Tip>
+      If Ollama runs as a background service (standard on macOS and Windows installer), it is already active.
+    </Tip>
+  </Step>
+
+  <Step title="Pull a Coding Model">
+    We recommend `qwen2.5-coder:7b` for code generation or `llama3.2:3b` for fast general responses:
+
+    ```bash
+    ollama pull qwen2.5-coder:7b
+    ```
+  </Step>
+
+  <Step title="Launch the CLI">
+    Start the interactive chat interface:
+
+    ```bash
+    ollama-cli --model qwen2.5-coder:7b
+    ```
+
+    Or if you've installed it as `ollamacli`:
+
+    ```bash
+    ollamacli
+    ```
+  </Step>
+
+  <Step title="Start Prompting">
+    Ask a question or request a project:
+
+    ```text
+    Build a Node.js REST API with Express and SQLite in TypeScript
+    ```
+
+    Ollama CLI will stream the response, render Markdown, and automatically save the code into your project folder.
+  </Step>
+</Steps>
+
+---
+
+## Basic Keyboard Shortcuts
+
+| Key | Action |
+| :--- | :--- |
+| `Enter` | Send message |
+| `Shift + Enter` | Insert newline in prompt |
+| `↑` / `↓` | Cycle through command & prompt history |
+| `Ctrl + L` | Jump to latest message at bottom |
+| `Ctrl + C` | Cancel active response stream or quit |
+
+---
+
+## Helpful Commands
+
+While inside the chat, type `/help` to view all slash commands:
+
+- `/models` — View all pulled models on your machine.
+- `/model <name>` — Switch models instantly without quitting your chat.
+- `/run <cmd>` — Execute a terminal command right from the chat.
+- `/clear` — Reset conversation history.

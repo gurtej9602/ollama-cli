@@ -1,0 +1,43 @@
+---
+title: "Recommended Models"
+description: "Tested and recommended local models for coding and chat with Ollama CLI"
+---
+
+Ollama CLI is compatible with any model available on the [Ollama Library](https://ollama.com/library). Below are our recommendations tailored to different hardware setups and use cases.
+
+## Coding Models
+
+| Model | Parameters | Required RAM/VRAM | Best For |
+| :--- | :--- | :--- | :--- |
+| **`qwen2.5-coder:7b`** | 7B | ~8 GB | **Recommended** — Exceptional code generation, reasoning, and multi-file logic. |
+| **`qwen2.5-coder:1.5b`** | 1.5B | ~2 GB | Lightweight code completions on laptops without a dedicated GPU. |
+| **`deepseek-coder:6.7b`** | 6.7B | ~8 GB | Outstanding for complex algorithmic tasks and unit testing. |
+| **`codellama:7b`** | 7B | ~8 GB | Solid, battle-tested Python and general coding model. |
+| **`qwen2.5-coder:14b`** | 14B | ~16 GB | High-end GPU coding with deeper multi-turn reasoning. |
+
+---
+
+## General Conversational Models
+
+| Model | Parameters | Required RAM/VRAM | Best For |
+| :--- | :--- | :--- | :--- |
+| **`llama3.2:3b`** | 3B | ~4 GB | Super fast, lightweight conversational model. |
+| **`llama3.2:1b`** | 1B | ~2 GB | Ultra-low resource footprint for quick questions. |
+| **`llama3.1:8b`** | 8B | ~8 GB | General knowledge, summarizing, and writing tasks. |
+| **`mistral:7b`** | 7B | ~8 GB | Excellent reasoning and concise instructions. |
+
+---
+
+## Pulling and Testing Models
+
+To pull any model, use the Ollama CLI directly in your terminal:
+
+```bash
+# Pull the recommended coding model
+ollama pull qwen2.5-coder:7b
+
+# Pull a lightweight fallback model
+ollama pull llama3.2:3b
+```
+
+Once pulled, you can switch between them inside Ollama CLI anytime with `/model <name>`.

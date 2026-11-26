@@ -1,0 +1,66 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Ollama CLI",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.png",
+  "colors": {
+    "primary": "#10B981",
+    "light": "#34D399",
+    "dark": "#059669"
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/gurtej9602/ollama-cli"
+    }
+  ],
+  "topbarCtaButton": {
+    "type": "github",
+    "url": "https://github.com/gurtej9602/ollama-cli"
+  },
+  "tabs": [
+    {
+      "name": "Documentation",
+      "url": "introduction"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "introduction",
+        "quickstart",
+        "installation"
+      ]
+    },
+    {
+      "group": "Core Features",
+      "pages": [
+        "features/chat-and-tui",
+        "features/auto-save",
+        "features/code-execution"
+      ]
+    },
+    {
+      "group": "Reference",
+      "pages": [
+        "reference/commands",
+        "reference/configuration",
+        "reference/models"
+      ]
+    },
+    {
+      "group": "Development",
+      "pages": [
+        "development/architecture",
+        "development/building"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/gurtej9602/ollama-cli"
+  }
+}

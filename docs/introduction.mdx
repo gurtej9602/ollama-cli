@@ -1,0 +1,63 @@
+---
+title: "Introduction"
+description: "A fast, local AI coding assistant powered by Ollama in your terminal"
+---
+
+# Welcome to Ollama CLI
+
+**Ollama CLI** is a terminal-native AI coding assistant powered by [Ollama](https://ollama.com). It brings an intelligent, private assistant right inside your shell with zero cloud dependencies and no API keys required.
+
+It streams responses token-by-token, renders rich Markdown, automatically extracts and saves generated code into project folders, and provides an automatic error-fix loop by running shell commands and returning any diagnostic output to the model.
+
+```
+╔═══════════════════════════════════╗
+║       🦙  Ollama CLI  🦙          ║
+║  Local AI assistant — no cloud   ║
+╚═══════════════════════════════════╝
+
+✓ Connected to Ollama  ▸ qwen2.5-coder:7b
+Type a message and press Enter. /help for commands.
+```
+
+---
+
+## Key Highlights
+
+<CardGroup cols={2}>
+  <Card title="100% Private & Local" icon="shield-halved">
+    Everything runs locally on your machine via Ollama. No tokens, prompts, or code ever leave your computer.
+  </Card>
+
+  <Card title="Live Streaming TUI" icon="bolt">
+    Built with Go and the Charm stack (Bubble Tea, Lipgloss, Glamour) for lightning-fast token streaming and syntax highlighting.
+  </Card>
+
+  <Card title="Automatic Code Saving" icon="floppy-disk">
+    Every fenced code block written by the model is organized and saved to `~/ollama-cli-projects/` automatically.
+  </Card>
+
+  <Card title="Command Execution & Self-Fix Loop" icon="rotate">
+    Execute build scripts or test commands with `/run`. When errors happen, stderr is fed back to the LLM to self-heal.
+  </Card>
+
+  <Card title="Multi-Theme Support" icon="palette">
+    Switch seamlessly between `dark`, `dracula`, `nord`, `monokai`, `ocean`, `forest`, and `sunset` color palettes.
+  </Card>
+
+  <Card title="Cross-Platform Single Binary" icon="computer">
+    Zero runtime dependencies. Compiles to a single standalone executable on Windows, macOS, and Linux.
+  </Card>
+</CardGroup>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Get up and running in under 2 minutes.
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Ollama CLI via Go or build from source.
+  </Card>
+</CardGroup>

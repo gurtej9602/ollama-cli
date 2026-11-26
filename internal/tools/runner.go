@@ -13,11 +13,14 @@ import (
 )
 
 // fileAnnotationRe matches lines like:
-//
 //	// file: src/main.py
-//	# file: src/main.py
-//	<!-- file: src/main.py -->
-var fileAnnotationRe = regexp.MustCompile(`(?i)^\s*(?://|#|<!--)\s*file:\s*(.+?)\s*(?:-->)?\s*$`)
+//	# filepath: src/main.py
+//	/* file: src/main.py */
+//	<!-- filename: src/main.py -->
+//	-- file: schema.sql
+//	; file: config.ini
+//	rem file: script.bat
+var fileAnnotationRe = regexp.MustCompile(`(?i)^\s*(?://|#|<!--|/\*|--|;|rem)\s*(?:file|filepath|filename|path):\s*(.+?)\s*(?:-->|\*/)?\s*$`)
 
 // ExtractFileAnnotation checks if the first non-empty line of code declares a
 // file path (e.g. "// file: src/main.py"). Returns the path and true, or ("", false).
@@ -28,7 +31,11 @@ func ExtractFileAnnotation(code string) (string, bool) {
 			continue
 		}
 		if m := fileAnnotationRe.FindStringSubmatch(line); len(m) == 2 {
-			return filepath.FromSlash(strings.TrimSpace(m[1])), true
+			cleanPath := strings.Trim(strings.TrimSpace(m[1]), "`'\"")
+			cleanPath = filepath.Clean(filepath.FromSlash(cleanPath))
+			if cleanPath != "." && cleanPath != "" && !filepath.IsAbs(cleanPath) && !strings.HasPrefix(cleanPath, "..") {
+				return cleanPath, true
+			}
 		}
 		// First non-empty line is not an annotation
 		break
@@ -36,14 +43,20 @@ func ExtractFileAnnotation(code string) (string, bool) {
 	return "", false
 }
 
-// StripFileAnnotation removes the first line if it is a file annotation comment.
+// StripFileAnnotation removes the file annotation line if present (even if preceded by blank lines).
 func StripFileAnnotation(code string) string {
-	lines := strings.SplitN(code, "\n", 2)
-	if len(lines) < 2 {
-		return code
-	}
-	if m := fileAnnotationRe.FindStringSubmatch(lines[0]); len(m) == 2 {
-		return strings.TrimPrefix(lines[1], "\n")
+	lines := strings.Split(code, "\n")
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if trimmed == "" {
+			continue
+		}
+		if fileAnnotationRe.MatchString(trimmed) {
+			// Remove this line and preserve remaining lines
+			remaining := append(lines[:i], lines[i+1:]...)
+			return strings.Join(remaining, "\n")
+		}
+		break
 	}
 	return code
 }
@@ -561,7 +574,7 @@ type CodeBlock struct {
 }
 
 // codeBlockRe matches ```lang\ncode\n``` fences in markdown
-var codeBlockRe = regexp.MustCompile("(?s)```([a-zA-Z0-9+#]*)\\n(.*?)```")
+var codeBlockRe = regexp.MustCompile("(?s)```([a-zA-Z0-9+#_.-]*)[^\n]*\n(.*?)```")
 
 // ExtractCodeBlocks returns all code blocks found in markdown text
 func ExtractCodeBlocks(markdown string) []CodeBlock {
@@ -571,6 +584,10 @@ func ExtractCodeBlocks(markdown string) []CodeBlock {
 		lang := strings.ToLower(strings.TrimSpace(m[1]))
 		code := strings.TrimSpace(m[2])
 		if code == "" {
+			continue
+		}
+		// Ignore purely explanatory or command-output fence blocks if not actual code
+		if lang == "output" || lang == "stdout" || lang == "stderr" || lang == "console" || lang == "text" || lang == "plain" {
 			continue
 		}
 		blocks = append(blocks, CodeBlock{Language: lang, Code: code})

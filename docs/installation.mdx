@@ -1,0 +1,85 @@
+---
+title: "Installation"
+description: "Install Ollama CLI on Windows, macOS, or Linux"
+---
+
+Ollama CLI is written in Go and compiles to a standalone, zero-dependency binary.
+
+## Requirements
+
+Before installing Ollama CLI, make sure you have:
+
+- [Ollama](https://ollama.com) installed and running (`ollama serve`)
+- At least one model pulled (e.g. `ollama pull qwen2.5-coder:7b`)
+- Go 1.22+ (only required if building from source)
+- A terminal with ANSI / true-color support
+
+---
+
+## Installation Methods
+
+### Method 1: Using `go install` (Recommended)
+
+If you have Go installed, install the latest version directly:
+
+```bash
+go install github.com/gurtej9602/ollama-cli@latest
+```
+
+This installs the executable into `$GOPATH/bin` (or `~/go/bin`), which is usually already in your system `PATH`.
+
+---
+
+### Method 2: Build From Source
+
+Clone the repository and build the binary:
+
+```bash
+git clone https://github.com/gurtej9602/ollama-cli.git
+cd ollama-cli
+go build -ldflags="-s -w" -o ollama-cli .
+```
+
+On Windows (PowerShell):
+```powershell
+go build -ldflags="-s -w" -o ollama-cli.exe .
+```
+
+---
+
+## Making the CLI Globally Available
+
+To run `ollamacli` from any folder in your terminal, add it to your system PATH:
+
+<Tabs>
+  <Tab title="Windows (PowerShell)">
+    Build directly into your Go bin directory:
+    ```powershell
+    go build -ldflags="-s -w" -o "$env:GOPATH\bin\ollamacli.exe" .
+    ```
+
+    Alternatively, move `ollama-cli.exe` to a dedicated tools directory (e.g. `C:\tools\`) and add `C:\tools` to your **User PATH** under System Environment Variables.
+  </Tab>
+
+  <Tab title="macOS">
+    Move the compiled binary to `/usr/local/bin`:
+    ```bash
+    go build -ldflags="-s -w" -o ollamacli .
+    sudo mv ollamacli /usr/local/bin/
+    ```
+  </Tab>
+
+  <Tab title="Linux">
+    Move the compiled binary to `/usr/local/bin`:
+    ```bash
+    go build -ldflags="-s -w" -o ollamacli .
+    sudo mv ollamacli /usr/local/bin/
+    ```
+  </Tab>
+</Tabs>
+
+Verify the global installation by opening a new terminal window:
+
+```bash
+ollamacli --help
+```

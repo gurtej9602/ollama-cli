@@ -1,0 +1,74 @@
+---
+title: "Auto-Save & Project Workflow"
+description: "Automatically organize and save generated code directly into project directories"
+---
+
+One of the standout features of Ollama CLI is **automatic code extraction**. Whenever the model writes fenced code blocks, the CLI automatically saves them to your local disk.
+
+No more copying snippets from the terminal and creating files manually.
+
+## Where Files Are Saved
+
+By default, every session's code blocks are saved inside:
+
+```text
+~/ollama-cli-projects/
+└── <YYYY-MM-DD>/
+    └── <HHMMSS>/
+        ├── main.py
+        ├── requirements.txt
+        └── README.md
+```
+
+On Windows, this defaults to:
+```text
+C:\Users\<Username>\ollama-cli-projects\<Date>\<Time>\
+```
+
+---
+
+## Multi-File Annotations
+
+To generate complex multi-file projects, the model can specify target filenames using a file annotation comment on the very first line of each code block:
+
+### Python / Ruby / Bash
+```python
+# file: src/app.py
+def start():
+    print("Starting server...")
+```
+
+### Go / JavaScript / C / C++ / Rust
+```go
+// file: cmd/server/main.go
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Server ready")
+}
+```
+
+### HTML / XML
+```html
+<!-- file: public/index.html -->
+<!DOCTYPE html>
+<html>
+  <head><title>App</title></head>
+  <body><h1>Hello World</h1></body>
+</html>
+```
+
+<Tip>
+  If the model does not include an explicit `// file:` annotation, Ollama CLI automatically infers a sensible filename based on the programming language (such as `main.py`, `index.js`, `main.go`, `styles.css`).
+</Tip>
+
+---
+
+## Navigating to Saved Projects
+
+Use the built-in slash commands to jump straight to your code:
+
+- `/cd` — Changes the execution working directory to your generated project folder.
+- `/terminal` — Launches a new terminal window inside the project directory so you can edit, commit, or run files independently.

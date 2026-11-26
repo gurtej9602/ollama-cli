@@ -1,0 +1,61 @@
+---
+title: "Code Execution & Self-Correction"
+description: "Run shell commands directly from chat and leverage automated LLM self-healing"
+---
+
+Ollama CLI allows you to execute commands and scripts directly within the context of your chat session.
+
+## Executing Commands with `/run`
+
+Use `/run` to execute any command in the current project directory:
+
+```bash
+/run npm test
+/run go run main.go
+/run python app.py
+```
+
+The CLI captures both standard output (`stdout`) and standard error (`stderr`), displaying the output directly in your TUI viewport.
+
+---
+
+## The Automated Error-Fix Loop
+
+Writing code with local models often involves minor syntax slips, missing imports, or runtime errors. Ollama CLI introduces a built-in **Self-Correction Loop**:
+
+<Steps>
+  <Step title="Model Generates Code">
+    You prompt the model to build a program or script. Ollama CLI extracts and saves the code to disk.
+  </Step>
+
+  <Step title="Execute the Code">
+    You run the code using `/run <command>` (or allow the CLI to infer the runner).
+  </Step>
+
+  <Step title="Automatic Error Feedback">
+    If the command exits with an error (non-zero status code), Ollama CLI automatically wraps the error output and sends it back to the model:
+
+    ```text
+    Command failed with exit code 1:
+    ImportError: No module named 'flask'
+    ```
+  </Step>
+
+  <Step title="Self-Correction">
+    The model receives the exact error output, fixes its code (e.g. adding `pip install flask` or correcting imports), and outputs the updated files, which are immediately saved again.
+  </Step>
+</Steps>
+
+---
+
+## Smart Run Inference
+
+When you ask Ollama CLI to test or execute a project without specifying the exact command, it inspects your saved files and infers the correct toolchain:
+
+| Project Files Detected | Inferred Command |
+| :--- | :--- |
+| `package.json` | `npm test` or `npm start` |
+| `go.mod` / `*.go` | `go run .` |
+| `requirements.txt` / `main.py` | `python main.py` |
+| `Cargo.toml` | `cargo run` |
+| `Makefile` | `make` |

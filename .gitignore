@@ -24,3 +24,7 @@ Thumbs.db
 # Local test scripts
 test.ps1
 test file.ps1
+
+# Mintlify
+.mintlify/
+
