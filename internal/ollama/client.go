@@ -12,9 +12,10 @@ import (
 // ── Request / Response types ──────────────────────────────────────────────────
 
 type chatRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-	Stream   bool      `json:"stream"`
+	Model    string                 `json:"model"`
+	Messages []Message              `json:"messages"`
+	Stream   bool                   `json:"stream"`
+	Options  map[string]interface{} `json:"options,omitempty"`
 }
 
 type chatResponse struct {
@@ -125,6 +126,9 @@ func (c *Client) StreamChat(ctx context.Context, messages []Message, systemPromp
 		Model:    c.model,
 		Messages: allMessages,
 		Stream:   true,
+		Options: map[string]interface{}{
+			"num_ctx": 8192,
+		},
 	}
 
 	body, err := json.Marshal(payload)

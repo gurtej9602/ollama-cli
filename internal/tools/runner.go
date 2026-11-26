@@ -179,10 +179,31 @@ func AutoSaveResponse(markdown string) (string, []ProjectFile, error) {
 		return "", nil, nil
 	}
 
+	// Filter out short shell commands or trivial snippets that lack explicit file annotations
+	// (so answering questions that include commands doesn't trigger unexpected project saving)
+	var projectBlocks []CodeBlock
+	for _, b := range blocks {
+		if _, ok := ExtractFileAnnotation(b.Code); ok {
+			projectBlocks = append(projectBlocks, b)
+			continue
+		}
+		lang := strings.ToLower(b.Language)
+		isShell := lang == "bash" || lang == "sh" || lang == "powershell" || lang == "ps1" || lang == "shell" || lang == "cmd" || lang == "zsh" || lang == "batch"
+		lineCount := len(strings.Split(strings.TrimSpace(b.Code), "\n"))
+		if isShell && lineCount <= 5 {
+			continue // Illustrative command in answer to a question
+		}
+		projectBlocks = append(projectBlocks, b)
+	}
+
+	if len(projectBlocks) == 0 {
+		return "", nil, nil
+	}
+
 	langCount := map[string]int{}
 	var files []ProjectFile
 
-	for _, b := range blocks {
+	for _, b := range projectBlocks {
 		lang := strings.ToLower(b.Language)
 		code := b.Code
 		var relPath string
